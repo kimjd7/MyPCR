@@ -1,0 +1,80 @@
+package loopTest;
+
+import java.awt.EventQueue;
+import java.io.IOException;
+
+import javax.swing.JDialog;
+
+import com.codeminders.hidapi.HIDDevice;
+import com.codeminders.hidapi.HIDManager;
+import com.hidapi.CallbackDeviceChange;
+import com.hidapi.DeviceChange;
+
+public class mainUI extends JDialog implements DeviceChange {
+
+	private HIDManager m_Manager = null;
+	private HIDDevice m_Device = null;
+	private CallbackDeviceChange m_Callback_DeviceChange = null;
+	private boolean IsConnected = false;	
+	
+	/**
+	 * Launch the application.
+	 */
+	public static void main(String[] args) {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					mainUI dialog = new mainUI();
+					dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+					dialog.setVisible(true);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
+	/**
+	 * Create the dialog.
+	 */
+	public mainUI() {
+		setBounds(100, 100, 450, 300);
+		init();
+	}
+	
+	private void init() {
+		// Device 연결 체크용 콜백 함수 설정
+		
+		try
+		{
+			// DeviceManager 인스턴스 생성
+			m_Manager = HIDManager.getInstance();
+			// Device 연결 상태를 표시해주는 콜백함수 등록
+			m_Callback_DeviceChange = CallbackDeviceChange.getInstance(m_Manager, this);
+			m_Callback_DeviceChange.setDaemon(true);
+			m_Callback_DeviceChange.start();
+		}catch(IOException e)
+		{
+			e.printStackTrace();
+		}
+		
+		
+	}
+	
+	@Override
+	public void OnMessage(int MessageType, Object data)
+	{
+		switch( MessageType )
+		{
+			case CONNECTED:
+				String count = (String)data;
+				if( count.equals("1") )
+					IsConnected = true;
+				break;
+			case DISCONNECTED:
+				IsConnected = false;
+				break;
+		}
+	}	
+
+}

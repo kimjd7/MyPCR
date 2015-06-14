@@ -1,0 +1,154 @@
+package loopTest;
+
+import java.awt.EventQueue;
+import java.io.IOException;
+
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+
+import com.codeminders.hidapi.HIDDevice;
+import com.codeminders.hidapi.HIDManager;
+import com.hidapi.CallbackDeviceChange;
+import com.hidapi.DeviceChange;
+import com.hidapi.DeviceConstant;
+import com.hidapi.HidClassLoader;
+import javax.swing.JLabel;
+import java.awt.BorderLayout;
+import javax.swing.ImageIcon;
+import java.awt.Component;
+import javax.swing.SwingConstants;
+
+
+public class mainUI extends JDialog implements DeviceChange {
+
+	private HIDManager m_Manager = null;
+	private HIDDevice m_Device = null;
+	private CallbackDeviceChange m_Callback_DeviceChange = null;
+	private boolean IsConnected = false;	
+	
+	private String serialNumber = null;
+	private JLabel conLed = new JLabel("");
+
+	static
+	{
+		// HID 관련 Native 라이브러리를 운영체제별로 부를 수 있는 함수이다. 프로그램이 동작시 1번만 실행된다.
+		if( !HidClassLoader.LoadLibrary() )
+		{
+			// 만약 로드에 실패하면 오류 메시지창을 띄우고, 프로그램을 종료시킨다.
+			JOptionPane.showMessageDialog(null, "Not Supported OS.. Exit the Program.");
+			System.exit(-1);
+		}
+	}
+
+	/**
+	 * Launch the application.
+	 */
+	public static void main(String[] args) {
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					mainUI dialog = new mainUI();
+					dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+					dialog.setVisible(true);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
+	/**
+	 * Create the dialog.
+	 */
+	public mainUI() {
+		setBounds(100, 100, 450, 300);
+		
+		conLed.setVerticalTextPosition(SwingConstants.TOP);
+		conLed.setVerticalAlignment(SwingConstants.TOP);
+		conLed.setAlignmentX(Component.RIGHT_ALIGNMENT);
+		conLed.setIcon(new ImageIcon(mainUI.class.getResource("/img/ledGLow.png")));
+		getContentPane().add(conLed, BorderLayout.NORTH);
+		init();
+	}
+	
+	private void init() {
+		// Device 연결 체크용 콜백 함수 설정
+		
+		try
+		{
+			// DeviceManager 인스턴스 생성
+			m_Manager = HIDManager.getInstance();
+			// Device 연결 상태를 표시해주는 콜백함수 등록
+			m_Callback_DeviceChange = CallbackDeviceChange.getInstance(m_Manager, this);
+			m_Callback_DeviceChange.setDaemon(true);
+			m_Callback_DeviceChange.start();
+		}catch(IOException e)
+		{
+			e.printStackTrace();
+		}
+		
+		
+	}
+
+	public void setSerialNumber(String serialNumber){
+		this.serialNumber = serialNumber;
+		m_Callback_DeviceChange.setSerialNumber(serialNumber);
+	}
+
+	public HIDDevice getDevice()
+	{
+		return m_Device;
+	}
+	
+	private void connectToDevice(){
+		try
+		{
+			if( m_Device != null )
+			{
+				m_Device.close();
+				m_Device = null;
+			}
+			
+			m_Device = m_Manager.openById(DeviceConstant.VENDOR_ID, DeviceConstant.PRODUCT_ID, serialNumber);
+			if( m_Device != null )
+			{
+				IsConnected = true;
+				m_Device.disableBlocking();
+				
+				setTitle(m_Device.getSerialNumberString());
+				setSerialNumber(m_Device.getSerialNumberString());
+				
+			}
+			else
+			{
+				// 연결 에러 처리
+				System.out.println("Fatal Error!");
+			}
+		}catch(IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+
+	
+	@Override
+	public void OnMessage(int MessageType, Object data)
+	{
+		String test = "test";
+		switch( MessageType )
+		{
+			case CONNECTED:
+				String count = (String)data;
+				if( count.equals("1") ) {
+					connectToDevice();
+					conLed.setIcon(new ImageIcon(mainUI.class.getResource("/img/ledGHigh.png")));
+				}
+				break;
+			case DISCONNECTED:
+				IsConnected = false;
+				conLed.setIcon(new ImageIcon(mainUI.class.getResource("/img/ledGLow.png")));
+				break;
+		}
+	}	
+
+}
